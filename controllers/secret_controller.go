@@ -3,11 +3,9 @@ package controllers
 import (
 	"context"
 	"reflect"
-	"strconv"
 
 	"github.com/kuadrant/authorino/api/v1beta1"
 	configv1beta1 "github.com/kuadrant/authorino/api/v1beta1"
-	controller_builder "github.com/kuadrant/authorino/controllers/builder"
 	"github.com/kuadrant/authorino/pkg/common"
 
 	"github.com/go-logr/logr"
@@ -17,13 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
-
-// Supporting mocking out functions for testing
-var newController = controller_builder.NewControllerManagedBy
 
 // SecretReconciler reconciles k8s Secret objects
 type SecretReconciler struct {
@@ -87,36 +80,9 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 }
 
-func filterByLabels(secretLabel string) predicate.Funcs {
-	filter := func(object client.Object) bool {
-		if val, ok := object.GetLabels()[secretLabel]; ok {
-			enabled, _ := strconv.ParseBool(val)
-			return enabled
-		}
-		return false
-	}
-
-	return predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			return filter(e.Object)
-		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			return filter(e.ObjectNew)
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			_, ok := e.Object.GetLabels()[secretLabel]
-			return ok
-		},
-		GenericFunc: func(e event.GenericEvent) bool {
-			return filter(e.Object)
-		},
-	}
-}
-
 func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return newController(mgr).
+	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1.Secret{}).
-		WithEventFilter(filterByLabels(r.SecretLabel)).
 		Complete(r)
 }
 

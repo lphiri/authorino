@@ -4,13 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/kuadrant/authorino/api/v1beta1"
 	"gotest.tools/assert"
 
-	"github.com/kuadrant/authorino/api/v1beta1"
-	controller_builder "github.com/kuadrant/authorino/controllers/builder"
-	mock_controller_builder "github.com/kuadrant/authorino/controllers/builder/mocks"
-
-	"github.com/golang/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -18,8 +14,6 @@ import (
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -33,18 +27,6 @@ func (r *fakeReconciler) Reconcile(_ context.Context, req ctrl.Request) (ctrl.Re
 	r.Finished <- true
 	r.Reconciled = true
 	return ctrl.Result{}, nil
-}
-
-type isPredicate struct {
-}
-
-func (c *isPredicate) Matches(x interface{}) bool {
-	predicateFuncs := x.(predicate.Funcs)
-	return predicateFuncs.CreateFunc != nil // Not ideal, but since we're only adding one filter
-}
-
-func (c *isPredicate) String() string {
-	return "contains 1 predicate"
 }
 
 type secretReconcilerTest struct {
@@ -125,28 +107,6 @@ func newSecretReconcilerTest(secretLabels map[string]string) secretReconcilerTes
 	}
 
 	return t
-}
-
-func TestSetupSecretReconcilerWithManager(t *testing.T) {
-	reconcilerTest := newSecretReconcilerTest(map[string]string{
-		"authorino.3scale.net/managed-by": "authorino",
-	})
-	secretReconciler := reconcilerTest.secretReconciler
-
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	builder := mock_controller_builder.NewMockControllerBuilder(mockCtrl)
-
-	newController = func(m manager.Manager) controller_builder.ControllerBuilder {
-		return builder
-	}
-
-	builder.EXPECT().For(gomock.Any()).Return(builder)
-	builder.EXPECT().WithEventFilter(&isPredicate{}).Return(builder)
-	builder.EXPECT().Complete(secretReconciler)
-
-	_ = secretReconciler.SetupWithManager(nil)
 }
 
 func (t *secretReconcilerTest) reconcile() (reconcile.Result, error) {
